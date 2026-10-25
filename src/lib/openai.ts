@@ -2,6 +2,20 @@
 
 export class ProviderError extends Error {}
 
+// Un modelo puede aparecer en /v1/models y aun así estar retirado, así que se
+// prueban en orden y se salta el que OpenAI responda que "no existe".
+const IMAGE_MODELS = ["gpt-image-1-mini", "gpt-image-1.5", "gpt-image-2", "gpt-image-1"];
+const MODEL_BY_SPEED: Record<string, string> = {
+  express: "gpt-image-1-mini",
+  speed: "gpt-image-1.5",
+  quality: "gpt-image-2",
+};
+
+function candidates(speed?: string) {
+  const first = process.env.OPENAI_IMAGE_MODEL || MODEL_BY_SPEED[speed ?? "express"];
+  return [first, ...IMAGE_MODELS].filter((m, i, a) => m && a.indexOf(m) === i);
+}
+
 export type VerifyResult = { ok: boolean; message: string; hasImageModel?: boolean };
 
 // Comprueba el token con GET /v1/models (no consume saldo).
@@ -21,14 +35,16 @@ export async function verifyOpenAIKey(key: string): Promise<VerifyResult> {
   if (!res.ok) return { ok: false, message: `OpenAI respondió con el error ${res.status}.` };
 
   const data = (await res.json().catch(() => ({}))) as { data?: { id: string }[] };
-  const hasImageModel = (data.data ?? []).some((m) => m.id === "gpt-image-1");
+  const ids = new Set((data.data ?? []).map((m) => m.id));
+  const available = IMAGE_MODELS.filter((m) => ids.has(m) && m !== "gpt-image-1");
+  const hasImageModel = available.length > 0;
   return hasImageModel
-    ? { ok: true, hasImageModel, message: "Token válido. Tu cuenta tiene acceso a gpt-image-1 para generar imágenes." }
+    ? { ok: true, hasImageModel, message: `Token válido. Modelos de imagen disponibles: ${available.join(", ")}.` }
     : {
         ok: true,
         hasImageModel,
         message:
-          "Token válido, pero tu cuenta no muestra acceso a gpt-image-1. Puede requerir verificar tu organización en platform.openai.com.",
+          "Token válido, pero tu cuenta no muestra modelos de imagen (gpt-image). Puede requerir verificar tu organización en platform.openai.com.",
       };
 }
 
@@ -62,29 +78,41 @@ export async function openaiImage(opts: {
   const quality = QUALITY[opts.speed ?? "express"] ?? "low";
   const ref = opts.referenceUrl ? await toBlob(opts.referenceUrl) : null;
 
-  let res: Response;
-  if (ref) {
-    // Con cara de referencia usamos edits para mantener la consistencia.
-    const form = new FormData();
-    form.set("model", "gpt-image-1");
-    form.set("prompt", opts.prompt);
-    form.set("size", size);
-    form.set("quality", quality);
-    form.set("image", ref, "reference.png");
-    res = await fetch("https://api.openai.com/v1/images/edits", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${opts.key}` },
-      body: form,
-      signal: AbortSignal.timeout(170000),
-    });
-  } else {
-    res = await fetch("https://api.openai.com/v1/images/generations", {
+  const call = (model: string) => {
+    if (ref) {
+      // Con cara de referencia usamos edits para mantener la consistencia.
+      const form = new FormData();
+      form.set("model", model);
+      form.set("prompt", opts.prompt);
+      form.set("size", size);
+      form.set("quality", quality);
+      form.set("image", ref, "reference.png");
+      return fetch("https://api.openai.com/v1/images/edits", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${opts.key}` },
+        body: form,
+        signal: AbortSignal.timeout(170000),
+      });
+    }
+    return fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: { Authorization: `Bearer ${opts.key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "gpt-image-1", prompt: opts.prompt, size, quality, n: 1 }),
+      body: JSON.stringify({ model, prompt: opts.prompt, size, quality, n: 1 }),
       signal: AbortSignal.timeout(170000),
     });
+  };
+
+  let res: Response | null = null;
+  let lastErr = "";
+  for (const model of candidates(opts.speed)) {
+    const r = await call(model);
+    if (r.ok) { res = r; break; }
+    const err = (await r.clone().json().catch(() => ({}))) as { error?: { code?: string; message?: string } };
+    const missing = /does not exist|model_not_found|not have access to model/i.test(`${err.error?.code} ${err.error?.message}`);
+    if (!missing) { res = r; break; }
+    lastErr = err.error?.message ?? "";
   }
+  if (!res) throw new ProviderError(`Ningún modelo de imagen de OpenAI está disponible en tu cuenta. ${lastErr}`.trim());
 
   if (!res.ok) {
     const err = (await res.json().catch(() => ({}))) as { error?: { code?: string; message?: string } };
@@ -99,7 +127,7 @@ export async function openaiImage(opts: {
       );
     }
     if (res.status === 403) {
-      throw new ProviderError("Tu cuenta de OpenAI no tiene acceso a gpt-image-1 (puede requerir verificar la organización).");
+      throw new ProviderError("Tu cuenta de OpenAI no tiene acceso a los modelos de imagen (puede requerir verificar la organización).");
     }
     throw new ProviderError(`OpenAI devolvió el error ${res.status}${err.error?.message ? `: ${err.error.message}` : ""}`);
   }
