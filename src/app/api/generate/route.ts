@@ -102,7 +102,16 @@ export async function POST(request: Request) {
   const { data: spent } = await admin.rpc("spend_credits", { uid: user.id, amount: cost });
   if (!spent) return NextResponse.json({ error: "Créditos insuficientes" }, { status: 402 });
 
+  // Colección (paso 3): solo si es del propio usuario.
+  let collectionId: string | undefined;
+  if (typeof body?.collectionId === "string") {
+    const { data: col } = await admin
+      .from("collections").select("id").eq("id", body.collectionId).eq("user_id", user.id).maybeSingle();
+    collectionId = col?.id;
+  }
+
   const params = {
+    collectionId,
     model, speed, size, cfg, photoEffect, negative,
     characterId: body?.characterId,
     purpose: isFace ? "face" : isAngle ? "angle" : "scene",

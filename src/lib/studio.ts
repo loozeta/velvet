@@ -94,3 +94,57 @@ export const REALISM_PROMPT =
   "soft natural daylight from a window, diffused directional key light, gentle highlight roll-off, realistic skin sheen, subsurface scattering, no beauty lighting; " +
   "adult subject, over 18, natural identity and bone structure, authentic expression, natural asymmetry, visible pores, slight tone variation, tiny natural blemishes, fine skin texture, natural skin oils; " +
   "minimal makeup that does not hide pores, real-world environment, casual editorial realism, raw but refined, unretouched look, natural grain, photometric accuracy";
+
+// Paso 3: temas de contenido lifestyle con escenas de partida (editables).
+export const LIFESTYLE_THEMES = [
+  { id: "cafe", name: "Café y mañana", scenes: [
+    "sitting at a sunny café table with a latte, casual morning outfit",
+    "walking down a city street holding a coffee cup, golden morning light",
+    "reading a book by the café window, soft natural light",
+    "ordering at the counter of a cozy coffee shop, candid moment",
+    "laptop on the table at a bright café, relaxed smile",
+    "taking a mirror selfie in a cozy cafe restroom, casual outfit",
+  ]},
+  { id: "gym", name: "Gimnasio y deporte", scenes: [
+    "tying sneakers before a workout in a modern gym, sportswear",
+    "mirror selfie in the gym after training, soft overhead lighting",
+    "stretching on a yoga mat at home, morning window light",
+    "running in a park at sunrise, athletic outfit",
+    "drinking water after a workout, relaxed candid look",
+    "holding a smoothie bowl at a healthy restaurant, activewear",
+  ]},
+  { id: "viaje", name: "Viajes", scenes: [
+    "standing on a balcony overlooking a european old town, summer dress",
+    "pulling a suitcase through an airport terminal, travel outfit",
+    "sitting on a train seat looking out the window, golden hour",
+    "walking on a cobblestone street in a coastal village, candid",
+    "at a hotel breakfast table with a sea view, relaxed",
+    "taking a photo with a vintage camera at a scenic viewpoint",
+  ]},
+  { id: "casa", name: "En casa", scenes: [
+    "relaxing on a sofa with a blanket and a mug, warm lamp light",
+    "cooking in a bright modern kitchen, casual home clothes",
+    "watering plants by a large window, soft morning light",
+    "sitting on the bedroom floor with a laptop, cozy atmosphere",
+    "mirror selfie in a stylish hallway, home outfit",
+    "reading in a hammock on the terrace, late afternoon",
+  ]},
+  { id: "noche", name: "Salida de noche", scenes: [
+    "getting ready in front of a mirror, evening makeup, warm lights",
+    "at a rooftop bar with city lights behind, elegant dress",
+    "walking out of a taxi on a neon-lit street at night",
+    "dancing under colored lights at a club, candid motion",
+    "sitting at a candlelit restaurant table, evening outfit",
+    "selfie in an elevator mirror before a night out",
+  ]},
+  { id: "moda", name: "Moda y estilo", scenes: [
+    "trying on outfits in a boutique fitting room, mirror shot",
+    "street style look walking past a graffiti wall, full body",
+    "posing with shopping bags on a busy avenue, daylight",
+    "close-up of accessories and a handbag on a marble table",
+    "sitting on a vintage chair in an editorial setup, studio light",
+    "outfit of the day mirror selfie in a minimalist bedroom",
+  ]},
+] as const;
+
+export const FRAMES_COST = 8;

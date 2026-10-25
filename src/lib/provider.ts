@@ -92,3 +92,35 @@ export async function swapFace(input: SwapInput): Promise<GenerationOutput> {
   if (!data.url) throw new Error("Respuesta del proveedor sin url");
   return { url: data.url };
 }
+
+export type FramesInput = {
+  // Imágenes del propio usuario generadas en Velvet.
+  startUrl: string;
+  endUrl?: string;
+  prompt: string;
+  duration: number; // segundos
+  engine: "veo" | "kling";
+};
+
+// Anima desde un frame inicial hasta un frame final (técnica start/end frame).
+// VIDEO_API_URL debe apuntar a tu proveedor (Veo, Kling, etc.). Sin él devuelve
+// un placeholder para poder probar el flujo.
+export async function animateFrames(input: FramesInput): Promise<GenerationOutput> {
+  const endpoint = process.env.VIDEO_API_URL;
+  if (!endpoint) {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="768" height="768"><rect width="100%" height="100%" fill="#1f3b4d"/><text x="50%" y="50%" fill="#fff" fill-opacity=".7" font-family="sans-serif" font-size="28" text-anchor="middle">video ${input.engine} ${input.duration}s (demo)</text></svg>`;
+    return { url: `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}` };
+  }
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.VIDEO_API_KEY ?? ""}`,
+    },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(`Proveedor respondió ${res.status}`);
+  const data = (await res.json()) as { url?: string };
+  if (!data.url) throw new Error("Respuesta del proveedor sin url");
+  return { url: data.url };
+}

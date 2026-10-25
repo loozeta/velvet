@@ -174,3 +174,17 @@ alter table characters add column if not exists face_generation_id uuid referenc
 
 -- Prompt visual detallado del modelo (generado a partir de sus caras/ángulos).
 alter table characters add column if not exists visual_profile text check (char_length(visual_profile) <= 6000);
+
+-- Paso 3: colecciones de contenido lifestyle.
+
+create table if not exists collections (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references profiles(id) on delete cascade,
+  name text not null check (char_length(name) between 1 and 80),
+  theme text,
+  created_at timestamptz not null default now()
+);
+alter table collections enable row level security;
+create policy "collections: ver propias" on collections for select using (user_id = auth.uid());
+create policy "collections: crear propias" on collections for insert with check (user_id = auth.uid());
+create policy "collections: borrar propias" on collections for delete using (user_id = auth.uid());
