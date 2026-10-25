@@ -8,6 +8,9 @@ import { ANGLES } from "@/lib/studio";
 
 type Face = { id: string; result_url: string };
 
+// Las imágenes de demostración son SVG en data: URL (se crean sin proveedor real).
+const isDemo = (url?: string | null) => !!url && url.startsWith("data:image/svg");
+
 export default function ModelsManager({ initial }: { initial: CharacterRow[] }) {
   const [models, setModels] = useState(initial);
   const [name, setName] = useState("");
@@ -133,12 +136,14 @@ function ModelCard({
     setBusy(false);
     if (!res.ok) return setError(data.error ?? "Error");
     await load();
+    if (!model.faceUrl || isDemo(model.faceUrl)) await setReference({ id: data.id, result_url: data.url });
   }
 
   async function generateAngles() {
     setBusyAngles(true);
     setError("");
-    for (const a of ANGLES.filter((x) => !angles[x.id])) {
+    const missing = ANGLES.filter((x) => !angles[x.id]);
+    for (const a of missing.length ? missing : ANGLES) {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -224,6 +229,13 @@ function ModelCard({
         </div>
       </div>
 
+      {(isDemo(model.faceUrl) || Object.values(angles).some(isDemo)) && (
+        <p className="mt-4 rounded-lg border border-yellow-500/40 p-3 text-sm text-yellow-400">
+          Esta cara o estos ángulos son imágenes de demostración (se crearon antes de conectar OpenAI).
+          Pulsa «Generar cara» y después «Regenerar ángulos» para obtener imágenes reales.
+        </p>
+      )}
+
       {faces.length > 0 && (
         <div className="mt-4">
           <p className="mb-2 text-sm text-muted">Caras generadas: pulsa una para usarla como referencia.</p>
@@ -265,10 +277,10 @@ function ModelCard({
               </div>
             ))}
           </div>
-          <button onClick={generateAngles} disabled={busyAngles || !model.faceUrl || ANGLES.every((a) => angles[a.id])}
+          <button onClick={generateAngles} disabled={busyAngles || !model.faceUrl}
             className="btn btn-outline !px-4 !py-2 text-sm disabled:opacity-50">
             {busyAngles ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
-            Generar ángulos ({ANGLES.filter((a) => !angles[a.id]).length} créditos)
+            {ANGLES.every((a) => angles[a.id]) ? "Regenerar ángulos (3 créditos)" : `Generar ángulos (${ANGLES.filter((a) => !angles[a.id]).length} créditos)`}
           </button>
           {!model.faceUrl && <p className="mt-2 text-xs text-muted">Primero elige una cara de referencia.</p>}
         </div>

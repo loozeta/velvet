@@ -7,10 +7,12 @@ import { createClient } from "@/lib/supabase/client";
 import { LIFESTYLE_THEMES } from "@/lib/studio";
 
 type Model = { id: string; name: string; faceUrl: string | null };
+const isDemo = (url?: string | null) => !!url && url.startsWith("data:image/svg");
 type Collection = { id: string; name: string; theme: string | null };
 type Item = { id: string; result_url: string; prompt: string };
 
-export default function LifestyleStudio({ models, initial }: { models: Model[]; initial: Collection[] }) {
+export default function LifestyleStudio({ models, initial, credits: initialCredits }: { models: Model[]; initial: Collection[]; credits: number }) {
+  const [credits, setCredits] = useState(initialCredits);
   const [collections, setCollections] = useState(initial);
   const [colId, setColId] = useState<string | null>(initial[0]?.id ?? null);
   const [newName, setNewName] = useState("");
@@ -69,7 +71,8 @@ export default function LifestyleStudio({ models, initial }: { models: Model[]; 
     setRunning(true);
     setError("");
     setProgress(0);
-    const list = scenes.map((s) => s.trim()).filter((s) => s.length >= 5);
+    // Solo las escenas que alcanzan con los créditos disponibles.
+    const list = scenes.map((s) => s.trim()).filter((s) => s.length >= 5).slice(0, credits);
     for (let i = 0; i < list.length; i++) {
       const res = await fetch("/api/generate", {
         method: "POST",
@@ -84,12 +87,15 @@ export default function LifestyleStudio({ models, initial }: { models: Model[]; 
         break;
       }
       setProgress(i + 1);
+      setCredits((c) => c - 1);
       await loadItems();
     }
     setRunning(false);
   }
 
-  const total = scenes.filter((s) => s.trim().length >= 5).length;
+  const wanted = scenes.filter((s) => s.trim().length >= 5).length;
+  const total = Math.min(wanted, credits);
+  const model = models.find((m) => m.id === modelId);
 
   if (!models.length) {
     return (
@@ -188,9 +194,21 @@ export default function LifestyleStudio({ models, initial }: { models: Model[]; 
               </select>
               <button onClick={runBatch} disabled={running || !colId || !total} className="btn btn-primary ml-auto disabled:opacity-50">
                 {running ? <Loader2 className="animate-spin" size={16} /> : <Play size={16} />}
-                {running ? `Generando ${progress}/${total}` : `Generar ${total} escenas (${total} créditos)`}
+                {running ? `Generando ${progress}/${total}` : credits < 1 ? "Sin créditos" : `Generar ${total} escenas (${total} créditos)`}
               </button>
             </div>
+            <p className="mt-3 text-sm text-muted">
+              Tienes <b className="text-brand">{credits}</b> créditos.
+              {wanted > credits && (
+                <> Solo alcanzan para {credits} de {wanted} escenas. <Link href="/precios" className="text-brand">Comprar créditos</Link></>
+              )}
+            </p>
+            {isDemo(model?.faceUrl) && (
+              <p className="mt-3 rounded-lg border border-yellow-500/40 p-3 text-sm text-yellow-400">
+                La cara de «{model?.name}» es una imagen de demostración. Regénerala en{" "}
+                <Link href="/modelos" className="underline">Mis modelos</Link> para que las escenas salgan con una cara real.
+              </p>
+            )}
             {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
           </section>
 
