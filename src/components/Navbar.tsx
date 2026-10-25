@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {
-  Image as ImageIcon, Video, Sparkles, Images, Star, LogIn, Coins, ChevronDown, History, Repeat, LayoutGrid, Film,
+  Image as ImageIcon, Video, Sparkles, Images, Star, LogIn, Coins, ChevronDown, History, Repeat, LayoutGrid, Film, Settings,
 } from "lucide-react";
 import { getUserAndProfile } from "@/lib/supabase/server";
 
@@ -55,6 +55,9 @@ export default async function Navbar() {
             <>
               <Link href="/precios" className="flex items-center gap-1 text-sm text-brand">
                 <Coins size={16} /> {profile?.credits ?? 0}
+              </Link>
+              <Link href="/configuracion" aria-label="Configuración" className="text-muted hover:text-brand">
+                <Settings size={20} />
               </Link>
               <Link href="/cuenta" className="btn btn-outline !py-1.5 text-sm">Mi cuenta</Link>
               {profile?.role === "admin" && (

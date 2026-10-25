@@ -188,3 +188,21 @@ alter table collections enable row level security;
 create policy "collections: ver propias" on collections for select using (user_id = auth.uid());
 create policy "collections: crear propias" on collections for insert with check (user_id = auth.uid());
 create policy "collections: borrar propias" on collections for delete using (user_id = auth.uid());
+
+-- Configuración: claves de proveedores (cifradas) y almacenamiento.
+
+create table if not exists provider_keys (
+  user_id uuid not null references profiles(id) on delete cascade,
+  provider text not null,
+  key_enc text not null,
+  last4 text not null,
+  verified_at timestamptz,
+  created_at timestamptz not null default now(),
+  primary key (user_id, provider)
+);
+-- Sin policies: solo el servidor (service role) puede leer o escribir las claves.
+alter table provider_keys enable row level security;
+revoke all on provider_keys from anon, authenticated;
+
+-- Bucket para las imágenes generadas (URLs con nombre aleatorio, no listables).
+insert into storage.buckets (id, name, public) values ('media', 'media', true) on conflict (id) do nothing;

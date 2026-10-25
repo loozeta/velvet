@@ -1,3 +1,5 @@
+import { openaiImage } from "@/lib/openai";
+
 // Interfaz con el proveedor de generación. Sin GENERATION_API_URL devuelve un
 // placeholder, para poder probar todo el flujo (créditos, galería, moderación)
 // sin gastar dinero. Para producción, apunta GENERATION_API_URL a tu proveedor
@@ -22,7 +24,21 @@ export type GenerationInput = {
 
 export type GenerationOutput = { url: string };
 
-export async function generate(input: GenerationInput): Promise<GenerationOutput> {
+export async function generate(
+  input: GenerationInput,
+  opts?: { openaiKey?: string | null },
+): Promise<GenerationOutput> {
+  // Token de OpenAI del usuario (Configuración): solo para imágenes.
+  if (opts?.openaiKey && input.kind === "image") {
+    const url = await openaiImage({
+      key: opts.openaiKey,
+      prompt: input.prompt + (input.negative ? `\nAvoid: ${input.negative}` : ""),
+      size: input.size,
+      speed: input.speed,
+      referenceUrl: input.referenceUrl,
+    });
+    return { url };
+  }
   const endpoint = process.env.GENERATION_API_URL;
   if (!endpoint) return mock(input);
 

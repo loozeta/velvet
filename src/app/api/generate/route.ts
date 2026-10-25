@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { createAdmin, getUserAndProfile } from "@/lib/supabase/server";
 import { moderatePrompt, SAFETY_PREFIX } from "@/lib/moderation";
 import { generate, type GenerationKind } from "@/lib/provider";
+import { getOpenAIKey } from "@/lib/keys";
+import { ProviderError } from "@/lib/openai";
+import { persistMedia } from "@/lib/storage";
 import { ANGLES, costOf, MODELS, REALISM_PROMPT, SIZES, SPEEDS, type Speed } from "@/lib/studio";
 
 const clamp = (n: unknown, min: number, max: number, fallback: number) =>
@@ -118,6 +121,7 @@ export async function POST(request: Request) {
     angle: angle?.id,
   };
   try {
+    const openaiKey = kind === "image" ? await getOpenAIKey(user.id) : null;
     const out = await generate({
       kind,
       prompt: SAFETY_PREFIX + characterText + (isFace ? "Close-up face portrait, plain background. " : "") + prompt,
@@ -129,15 +133,17 @@ export async function POST(request: Request) {
       photoEffect,
       sourceUrl,
       referenceUrl,
-    });
+    }, { openaiKey });
+    out.url = await persistMedia(user.id, out.url);
     const { data: row } = await admin
       .from("generations")
       .insert({ user_id: user.id, kind, prompt, result_url: out.url, cost, params })
       .select("id")
       .single();
     return NextResponse.json({ id: row?.id, url: out.url, cost });
-  } catch {
+  } catch (e) {
     await admin.rpc("spend_credits", { uid: user.id, amount: -cost }); // reembolso
-    return NextResponse.json({ error: "Falló la generación, no se cobró" }, { status: 502 });
+    const msg = e instanceof ProviderError ? `${e.message} (no se cobró)` : "Falló la generación, no se cobró";
+    return NextResponse.json({ error: msg }, { status: 502 });
   }
 }
