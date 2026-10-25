@@ -17,7 +17,9 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null);
   const kind: GenerationKind = body?.kind === "video" ? "video" : "image";
+  const isFace = body?.purpose === "face";
   let prompt = typeof body?.prompt === "string" ? body.prompt.trim() : "";
+  if (isFace && prompt.length < 5) prompt = "front-facing face portrait, neutral expression";
   const negative = typeof body?.negative === "string" ? body.negative.slice(0, 3000) : "";
   const speed: Speed = SPEEDS.some((s) => s.id === body?.speed) ? body.speed : "express";
   const model = MODELS.some((m) => m.id === body?.model) ? body.model : "real-nude";
@@ -33,14 +35,29 @@ export async function POST(request: Request) {
 
   // Personaje guardado: su descripción se antepone al prompt y también se modera.
   let characterText = "";
+  let referenceUrl: string | undefined;
   if (typeof body?.characterId === "string") {
     const { data: ch } = await admin
       .from("characters")
-      .select("description")
+      .select("description, face_generation_id")
       .eq("id", body.characterId)
       .eq("user_id", user.id)
       .maybeSingle();
-    if (ch) characterText = ch.description + ". ";
+    if (ch) {
+      characterText = ch.description + ". ";
+      // La cara de referencia solo puede ser una imagen generada por el propio usuario.
+      if (ch.face_generation_id && !isFace) {
+        const { data: face } = await admin
+          .from("generations")
+          .select("result_url")
+          .eq("id", ch.face_generation_id)
+          .eq("user_id", user.id)
+          .eq("kind", "image")
+          .eq("status", "done")
+          .maybeSingle();
+        referenceUrl = face?.result_url ?? undefined;
+      }
+    }
   }
 
   // "Hojear": animar solo una imagen generada por el propio usuario en Velvet.
@@ -81,11 +98,15 @@ export async function POST(request: Request) {
   const { data: spent } = await admin.rpc("spend_credits", { uid: user.id, amount: cost });
   if (!spent) return NextResponse.json({ error: "Créditos insuficientes" }, { status: 402 });
 
-  const params = { model, speed, size, cfg, photoEffect, negative, characterId: body?.characterId };
+  const params = {
+    model, speed, size, cfg, photoEffect, negative,
+    characterId: body?.characterId,
+    purpose: isFace ? "face" : "scene",
+  };
   try {
     const out = await generate({
       kind,
-      prompt: SAFETY_PREFIX + characterText + prompt,
+      prompt: SAFETY_PREFIX + characterText + (isFace ? "Close-up face portrait, plain background. " : "") + prompt,
       negative,
       model,
       speed,
@@ -93,6 +114,7 @@ export async function POST(request: Request) {
       cfg,
       photoEffect,
       sourceUrl,
+      referenceUrl,
     });
     const { data: row } = await admin
       .from("generations")

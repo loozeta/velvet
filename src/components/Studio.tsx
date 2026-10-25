@@ -10,7 +10,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import Feed from "./Feed";
 
-type Character = { id: string; name: string; description: string };
+type Character = { id: string; name: string; description: string; faceUrl?: string | null };
 type Tab = "prompt" | "personajes" | "modelo" | "plantillas" | "ajustes";
 
 type Props = {
@@ -323,9 +323,17 @@ function Characters({
         </button>
         {error && <p className="text-sm text-red-400">{error}</p>}
       </div>
+      <p className="text-sm text-muted">
+        Para guardar la cara de un modelo como referencia, ve a{" "}
+        <a href="/modelos" className="text-brand">Mis modelos</a>.
+      </p>
       <div className="grid gap-3 sm:grid-cols-2">
         {characters.map((c) => (
           <div key={c.id} className={`card flex items-start gap-3 p-4 ${active === c.id ? "border-brand" : ""}`}>
+            {c.faceUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={c.faceUrl} alt="" className="size-14 shrink-0 rounded-lg object-cover" />
+            )}
             <button onClick={() => onPick(active === c.id ? undefined : c.id)} className="flex-1 text-left">
               <div className="font-semibold">{c.name} {active === c.id && <Check size={14} className="inline text-brand" />}</div>
               <div className="line-clamp-2 text-sm text-muted">{c.description}</div>

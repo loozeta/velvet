@@ -167,3 +167,7 @@ grant execute on function handle_new_user() to supabase_auth_admin;
 alter function handle_new_user() set search_path = public;
 alter function spend_credits(uuid, int) set search_path = public;
 alter function is_admin() set search_path = public;
+
+-- Modelos propios: cada personaje puede fijar una cara de referencia, que debe ser
+-- una imagen generada por el propio usuario en la plataforma (nunca una subida).
+alter table characters add column if not exists face_generation_id uuid references generations(id) on delete set null;

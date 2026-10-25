@@ -16,6 +16,8 @@ export type GenerationInput = {
   photoEffect?: number;
   // Solo para animar una imagen generada previamente en esta plataforma.
   sourceUrl?: string;
+  // Cara de referencia del personaje (imagen generada en la plataforma).
+  referenceUrl?: string;
 };
 
 export type GenerationOutput = { url: string };

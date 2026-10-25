@@ -35,8 +35,8 @@ export default async function Navbar() {
               ))}
             </div>
           </div>
-          <Link href="/personajes" className="flex items-center gap-2 text-sm hover:text-brand">
-            <Star size={18} className="text-brand" /> Personajes
+          <Link href="/modelos" className="flex items-center gap-2 text-sm hover:text-brand">
+            <Star size={18} className="text-brand" /> Mis modelos
           </Link>
           <Link href="/galeria" className="flex items-center gap-2 text-sm hover:text-brand">
             <Images size={18} className="text-brand" /> Galería
