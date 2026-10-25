@@ -171,3 +171,6 @@ alter function is_admin() set search_path = public;
 -- Modelos propios: cada personaje puede fijar una cara de referencia, que debe ser
 -- una imagen generada por el propio usuario en la plataforma (nunca una subida).
 alter table characters add column if not exists face_generation_id uuid references generations(id) on delete set null;
+
+-- Prompt visual detallado del modelo (generado a partir de sus caras/ángulos).
+alter table characters add column if not exists visual_profile text check (char_length(visual_profile) <= 6000);

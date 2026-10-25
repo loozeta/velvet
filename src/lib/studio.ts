@@ -59,6 +59,7 @@ export type StudioParams = {
   photoEffect: number;
   negative: string;
   characterId?: string;
+  realism: boolean;
 };
 
 export const DEFAULT_PARAMS: StudioParams = {
@@ -68,6 +69,7 @@ export const DEFAULT_PARAMS: StudioParams = {
   cfg: 5,
   photoEffect: 5,
   negative: DEFAULT_NEGATIVE,
+  realism: false,
 };
 
 export function costOf(kind: "image" | "video", speed: Speed) {
@@ -76,3 +78,19 @@ export function costOf(kind: "image" | "video", speed: Speed) {
 }
 
 export const SWAP_COST = { image: 2, video: 6 } as const;
+
+// Ángulos para fijar la consistencia de un modelo (paso 1).
+export const ANGLES = [
+  { id: "front", label: "Frontal", prompt: "front view, looking straight into the camera, face centered, neutral relaxed expression" },
+  { id: "three_quarter", label: "3/4", prompt: "three-quarter view, head turned about 45 degrees, same person, same expression" },
+  { id: "profile", label: "Perfil", prompt: "side profile view, head turned 90 degrees, same person, same expression" },
+] as const;
+
+export type AngleId = (typeof ANGLES)[number]["id"];
+
+// Estilo de realismo fotográfico (opcional). Siempre sujeto adulto.
+export const REALISM_PROMPT =
+  "Shot on iPhone 14 Pro main camera, real optical behavior, natural lens falloff, true depth of field, subtle micro-aberrations, handheld imperfection; " +
+  "soft natural daylight from a window, diffused directional key light, gentle highlight roll-off, realistic skin sheen, subsurface scattering, no beauty lighting; " +
+  "adult subject, over 18, natural identity and bone structure, authentic expression, natural asymmetry, visible pores, slight tone variation, tiny natural blemishes, fine skin texture, natural skin oils; " +
+  "minimal makeup that does not hide pores, real-world environment, casual editorial realism, raw but refined, unretouched look, natural grain, photometric accuracy";

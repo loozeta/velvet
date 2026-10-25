@@ -167,6 +167,18 @@ export default function Studio({ kind, initialTab = "prompt", characters: initia
             <input type="range" min={1} max={20} className="mt-3 w-full accent-orange-500"
               value={params.cfg} onChange={(e) => set("cfg", Number(e.target.value))} />
           </label>
+          {kind === "image" && (
+            <label className="flex items-start gap-3 text-sm sm:col-span-2">
+              <input type="checkbox" className="mt-1 accent-orange-500" checked={params.realism}
+                onChange={(e) => set("realism", e.target.checked)} />
+              <span>
+                Realismo fotográfico (estilo iPhone)
+                <span className="block text-xs text-muted">
+                  Añade luz natural, poros, textura de piel e imperfecciones reales para un acabado de foto sin retocar.
+                </span>
+              </span>
+            </label>
+          )}
           <label className="block text-sm sm:col-span-2">
             Mensaje negativo
             <textarea className="input mt-1 min-h-32 font-mono text-xs" maxLength={3000}

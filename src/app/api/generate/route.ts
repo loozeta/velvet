@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdmin, getUserAndProfile } from "@/lib/supabase/server";
 import { moderatePrompt, SAFETY_PREFIX } from "@/lib/moderation";
 import { generate, type GenerationKind } from "@/lib/provider";
-import { costOf, MODELS, SIZES, SPEEDS, type Speed } from "@/lib/studio";
+import { ANGLES, costOf, MODELS, REALISM_PROMPT, SIZES, SPEEDS, type Speed } from "@/lib/studio";
 
 const clamp = (n: unknown, min: number, max: number, fallback: number) =>
   typeof n === "number" && Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
@@ -18,8 +18,12 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const kind: GenerationKind = body?.kind === "video" ? "video" : "image";
   const isFace = body?.purpose === "face";
+  const angle = body?.purpose === "angle" ? ANGLES.find((a) => a.id === body?.angle) : undefined;
+  const isAngle = !!angle;
   let prompt = typeof body?.prompt === "string" ? body.prompt.trim() : "";
   if (isFace && prompt.length < 5) prompt = "front-facing face portrait, neutral expression";
+  if (angle && prompt.length < 5) prompt = `face and shoulders portrait, ${angle.prompt}`;
+  if (body?.realism === true && !isFace && !isAngle && kind === "image") prompt += `. ${REALISM_PROMPT}`;
   const negative = typeof body?.negative === "string" ? body.negative.slice(0, 3000) : "";
   const speed: Speed = SPEEDS.some((s) => s.id === body?.speed) ? body.speed : "express";
   const model = MODELS.some((m) => m.id === body?.model) ? body.model : "real-nude";
@@ -39,12 +43,12 @@ export async function POST(request: Request) {
   if (typeof body?.characterId === "string") {
     const { data: ch } = await admin
       .from("characters")
-      .select("description, face_generation_id")
+      .select("description, face_generation_id, visual_profile")
       .eq("id", body.characterId)
       .eq("user_id", user.id)
       .maybeSingle();
     if (ch) {
-      characterText = ch.description + ". ";
+      characterText = ch.description + ". " + (!isFace && ch.visual_profile ? ch.visual_profile.slice(0, 3000) + ". " : "");
       // La cara de referencia solo puede ser una imagen generada por el propio usuario.
       if (ch.face_generation_id && !isFace) {
         const { data: face } = await admin
@@ -101,7 +105,8 @@ export async function POST(request: Request) {
   const params = {
     model, speed, size, cfg, photoEffect, negative,
     characterId: body?.characterId,
-    purpose: isFace ? "face" : "scene",
+    purpose: isFace ? "face" : isAngle ? "angle" : "scene",
+    angle: angle?.id,
   };
   try {
     const out = await generate({

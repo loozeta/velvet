@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, Loader2, Plus, Sparkles, Trash2, UserRound } from "lucide-react";
+import { Check, Copy, Loader2, Plus, Sparkles, Trash2, UserRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { CharacterRow } from "@/lib/characters";
+import { ANGLES } from "@/lib/studio";
 
 type Face = { id: string; result_url: string };
 
@@ -25,7 +26,7 @@ export default function ModelsManager({ initial }: { initial: CharacterRow[] }) 
     const data = await res.json().catch(() => ({}));
     setCreating(false);
     if (!res.ok) return setError(res.status === 401 ? "Inicia sesión primero." : (data.error ?? "Error"));
-    setModels([{ ...data, face_generation_id: null, faceUrl: null }, ...models]);
+    setModels([{ ...data, face_generation_id: null, visual_profile: null, faceUrl: null }, ...models]);
     setName("");
     setDescription("");
   }
@@ -83,7 +84,12 @@ function ModelCard({
   onFace: (faceId: string | null, url: string | null) => void;
 }) {
   const [faces, setFaces] = useState<Face[]>([]);
+  const [angles, setAngles] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [busyAngles, setBusyAngles] = useState(false);
+  const [busyProfile, setBusyProfile] = useState(false);
+  const [profile, setProfile] = useState(model.visual_profile ?? "");
+  const [saved, setSaved] = useState(true);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -96,6 +102,21 @@ function ModelCard({
       .order("created_at", { ascending: false })
       .limit(12);
     setFaces((data ?? []).filter((f): f is Face => !!f.result_url));
+
+    const { data: ang } = await createClient()
+      .from("generations")
+      .select("result_url, params")
+      .eq("params->>characterId", model.id)
+      .eq("params->>purpose", "angle")
+      .eq("status", "done")
+      .order("created_at", { ascending: false })
+      .limit(30);
+    const byAngle: Record<string, string> = {};
+    for (const a of ang ?? []) {
+      const k = a.params?.angle;
+      if (k && a.result_url && !byAngle[k]) byAngle[k] = a.result_url;
+    }
+    setAngles(byAngle);
   }, [model.id]);
 
   useEffect(() => { load(); }, [load]);
@@ -112,6 +133,46 @@ function ModelCard({
     setBusy(false);
     if (!res.ok) return setError(data.error ?? "Error");
     await load();
+  }
+
+  async function generateAngles() {
+    setBusyAngles(true);
+    setError("");
+    for (const a of ANGLES.filter((x) => !angles[x.id])) {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "image", purpose: "angle", angle: a.id, characterId: model.id, prompt: "", size: "1:1", speed: "express" }),
+      });
+      if (!res.ok) {
+        setError((await res.json().catch(() => ({}))).error ?? "Error");
+        break;
+      }
+      await load();
+    }
+    setBusyAngles(false);
+  }
+
+  async function createProfile() {
+    setBusyProfile(true);
+    setError("");
+    const res = await fetch(`/api/characters/${model.id}/profile`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    setBusyProfile(false);
+    if (!res.ok) return setError(data.error ?? "Error");
+    setProfile(data.visualProfile);
+    setSaved(true);
+  }
+
+  async function saveProfile() {
+    setError("");
+    const res = await fetch(`/api/characters/${model.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ visualProfile: profile.trim() || null }),
+    });
+    if (!res.ok) return setError((await res.json().catch(() => ({}))).error ?? "Error");
+    setSaved(true);
   }
 
   async function setReference(face: Face | null) {
@@ -181,6 +242,62 @@ function ModelCard({
           </div>
         </div>
       )}
+
+      <div className="mt-5 grid gap-5 border-t border-border pt-5 lg:grid-cols-2">
+        <div>
+          <h4 className="mb-1 font-semibold">Paso 1 · 3 ángulos</h4>
+          <p className="mb-3 text-sm text-muted">
+            Frontal, 3/4 y perfil a partir de la cara de referencia. Garantiza que tu modelo salga igual
+            en cualquier escena.
+          </p>
+          <div className="mb-3 grid grid-cols-3 gap-3">
+            {ANGLES.map((a) => (
+              <div key={a.id} className="text-center text-xs text-muted">
+                <div className="mb-1 flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-surface-2">
+                  {angles[a.id] ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={angles[a.id]} alt={a.label} className="size-full object-cover" />
+                  ) : (
+                    <UserRound className="text-border" />
+                  )}
+                </div>
+                {a.label}
+              </div>
+            ))}
+          </div>
+          <button onClick={generateAngles} disabled={busyAngles || !model.faceUrl || ANGLES.every((a) => angles[a.id])}
+            className="btn btn-outline !px-4 !py-2 text-sm disabled:opacity-50">
+            {busyAngles ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
+            Generar ángulos ({ANGLES.filter((a) => !angles[a.id]).length} créditos)
+          </button>
+          {!model.faceUrl && <p className="mt-2 text-xs text-muted">Primero elige una cara de referencia.</p>}
+        </div>
+
+        <div>
+          <h4 className="mb-1 font-semibold">Paso 2 · Crear prompt</h4>
+          <p className="mb-3 text-sm text-muted">
+            La IA analiza la cara y los ángulos y escribe una descripción detallada del modelo. Se añade
+            automáticamente a tus generaciones cuando activas este modelo.
+          </p>
+          <textarea className="input min-h-36 font-mono text-xs" value={profile} maxLength={6000}
+            placeholder="Aún no hay prompt. Pulsa «Crear prompt» o escríbelo tú."
+            onChange={(e) => { setProfile(e.target.value); setSaved(false); }} />
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button onClick={createProfile} disabled={busyProfile || !model.faceUrl}
+              className="btn btn-primary !px-4 !py-2 text-sm disabled:opacity-50">
+              {busyProfile ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />} Crear prompt (1 crédito)
+            </button>
+            <button onClick={saveProfile} disabled={saved} className="btn border border-border !px-4 !py-2 text-sm disabled:opacity-40">
+              Guardar cambios
+            </button>
+            {profile && (
+              <button onClick={() => navigator.clipboard?.writeText(profile)} className="btn border border-border !px-3 !py-2 text-sm" aria-label="Copiar">
+                <Copy size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
     </section>
   );
 }
