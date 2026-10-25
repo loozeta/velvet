@@ -153,3 +153,17 @@ create policy "characters: borrar propios" on characters for delete using (user_
 create policy "likes: ver propios" on likes for select using (user_id = auth.uid());
 create policy "likes: crear propios" on likes for insert with check (user_id = auth.uid());
 create policy "likes: borrar propios" on likes for delete using (user_id = auth.uid());
+
+-- Seguridad: las funciones security definer no deben ser invocables desde el
+-- cliente (/rest/v1/rpc). spend_credits y handle_new_user solo las usa el
+-- servidor (service role) y el trigger; is_admin se usa dentro de las policies.
+revoke execute on function spend_credits(uuid, int) from public, anon, authenticated;
+revoke execute on function handle_new_user() from public, anon, authenticated;
+revoke execute on function is_admin() from public, anon;
+grant execute on function is_admin() to authenticated;
+
+-- El trigger sobre auth.users lo dispara supabase_auth_admin: necesita EXECUTE.
+grant execute on function handle_new_user() to supabase_auth_admin;
+alter function handle_new_user() set search_path = public;
+alter function spend_credits(uuid, int) set search_path = public;
+alter function is_admin() set search_path = public;
