@@ -62,3 +62,33 @@ function mock(input: GenerationInput): GenerationOutput {
 </svg>`;
   return { url: `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}` };
 }
+
+export type SwapInput = {
+  kind: GenerationKind;
+  // Medio de destino: SIEMPRE una generación del propio usuario en Velvet.
+  targetUrl: string;
+  // Cara de referencia del modelo: también generada en Velvet.
+  faceUrl: string;
+};
+
+// Aplica la cara del modelo sobre el contenido de destino. SWAP_API_URL debe
+// apuntar a tu proveedor de face-swap. Sin él devuelve un placeholder.
+export async function swapFace(input: SwapInput): Promise<GenerationOutput> {
+  const endpoint = process.env.SWAP_API_URL;
+  if (!endpoint) {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="768" height="768"><rect width="100%" height="100%" fill="#3b2a5a"/><text x="50%" y="50%" fill="#fff" fill-opacity=".7" font-family="sans-serif" font-size="28" text-anchor="middle">${input.kind} swap (demo)</text></svg>`;
+    return { url: `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}` };
+  }
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.SWAP_API_KEY ?? ""}`,
+    },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(`Proveedor respondió ${res.status}`);
+  const data = (await res.json()) as { url?: string };
+  if (!data.url) throw new Error("Respuesta del proveedor sin url");
+  return { url: data.url };
+}

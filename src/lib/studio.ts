@@ -74,3 +74,5 @@ export function costOf(kind: "image" | "video", speed: Speed) {
   if (kind === "video") return 5;
   return SPEEDS.find((s) => s.id === speed)!.cost;
 }
+
+export const SWAP_COST = { image: 2, video: 6 } as const;

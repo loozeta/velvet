@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {
-  Image as ImageIcon, Video, Sparkles, Images, Star, LogIn, Coins, ChevronDown, History,
+  Image as ImageIcon, Video, Sparkles, Images, Star, LogIn, Coins, ChevronDown, History, Repeat,
 } from "lucide-react";
 import { getUserAndProfile } from "@/lib/supabase/server";
 
@@ -8,6 +8,7 @@ const generateMenu = [
   { href: "/generar", label: "Imagen", sub: "Generar imagen de IA", icon: ImageIcon },
   { href: "/video", label: "Vídeo", sub: "Generar vídeo de IA", icon: Video },
   { href: "/hojear", label: "Hojear", sub: "Dar vida a tus imágenes", icon: Sparkles },
+  { href: "/intercambiar", label: "Intercambiar", sub: "Aplicar la cara de tu modelo", icon: Repeat },
 ];
 
 export default async function Navbar() {
